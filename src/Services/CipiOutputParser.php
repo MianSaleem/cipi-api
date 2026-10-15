@@ -117,6 +117,12 @@ class CipiOutputParser
 
         $token = $this->extractLabel($text, 'Token');
 
+        // Asset build (Laravel node_build, Cipi 5.6.0+) or Node app build command.
+        $build = null;
+        if (preg_match('/^\s*Build:\s*(.+?)\s*(?:\(every deploy[^)]*\))?\s*$/m', $text, $m)) {
+            $build = trim($m[1]);
+        }
+
         return array_filter([
             'app' => $app,
             'domain' => $domain,
@@ -133,7 +139,49 @@ class CipiOutputParser
             'deploy_key' => $deployKey,
             'webhook' => $webhook,
             'webhook_token' => $token,
+            'build' => $build,
+            'repository_access' => $this->parseRepositoryAccess($text),
         ], fn ($v) => $v !== null);
+    }
+
+    /**
+     * Whether the app's deploy key can read its repository — the check Cipi
+     * 5.6.0+ runs on app create and on app edit --repository / --branch.
+     * Null when the output carries no check (older Cipi, no repository).
+     *
+     * @return array{status: string, branch?: string, error?: string, hint?: string}|null
+     */
+    protected function parseRepositoryAccess(string $text): ?array
+    {
+        $access = null;
+        if (preg_match("/Repository reachable — branch '([^']+)' found/u", $text, $m)) {
+            $access = ['status' => 'ok', 'branch' => $m[1]];
+        } elseif (preg_match('/Repository\s+reachable ✓\s*\(branch ([^)]+)\)/u', $text, $m)) {
+            $access = ['status' => 'ok', 'branch' => trim($m[1])];
+        } elseif (preg_match("/reachable, but it has no branch '([^']+)'/u", $text, $m)) {
+            $access = ['status' => 'nobranch', 'branch' => $m[1]];
+        } elseif (preg_match('/Cannot read the repository with the deploy key(?::\s*([^\n]+))?/u', $text, $m)
+            || preg_match('/Repository\s+not readable with the deploy key/u', $text, $m)) {
+            $access = ['status' => 'denied'];
+            if (! empty($m[1])) {
+                $access['error'] = trim($m[1]);
+            }
+        }
+        if ($access === null) {
+            return null;
+        }
+        if ($access['status'] !== 'ok') {
+            // The command Cipi suggests: save or renew the forge token, then
+            // refresh the key; or, on an unknown host, trust it / add the key.
+            if (preg_match('/(cipi git \S+-token <[^>]+>(?: <[^>]+>)* && cipi git refresh \S+)/', $text, $h)
+                || preg_match('/(cipi git \S+-token <[^>]+>(?: <[^>]+>)*)/', $text, $h)
+                || preg_match('/(cipi deploy \S+ --trust-host=<host\[:port\]>)/', $text, $h)
+                || preg_match('/(cipi app edit \S+ --branch=<name>)/', $text, $h)) {
+                $access['hint'] = $h[1];
+            }
+        }
+
+        return $access;
     }
 
     protected function parseAppEdit(string $text): ?array
@@ -152,7 +200,15 @@ class CipiOutputParser
         if (str_contains($text, 'Nothing changed')) {
             return ['changes' => [], 'message' => 'Nothing changed'];
         }
-        return ! empty($changes) ? ['changes' => $changes] : null;
+        if (empty($changes)) {
+            return null;
+        }
+        $result = ['changes' => $changes];
+        if ($access = $this->parseRepositoryAccess($text)) {
+            $result['repository_access'] = $access;
+        }
+
+        return $result;
     }
 
     protected function parseAppWebhookRecreate(string $text): ?array

@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.34.0] - 2026-10-15
+
+Covers Cipi 5.6.0 on the app create path: the asset build can be set at creation, and the job results say whether the app can read its repository. **Cipi CLI ≥ 5.6.0** fills both; on older servers `node_build` is ignored by the CLI and `repository_access` is simply absent. No sudoers change: `app create *` and `app edit *` are already allowed.
+
+### Added
+
+- **`node_build` on `POST /api/apps`** (Laravel apps) — the asset build Cipi runs inside every deploy, after `composer install` and before the release goes live, e.g. `npm ci && npm run build`. Passed as `cipi app create --node-build=…`; the same setting as `node_build` in `PUT /api/apps/{name}/deploy-config`. Validated before the job is queued with the CLI's own rule: it starts with npm, npx, yarn, pnpm, bun or node, `&&` and `;` are allowed, pipes, redirects, backticks and `$( )` are not, 200 characters at most. Refused with 422 on custom and Node apps (Node apps keep `build`). MCP `AppCreate` takes the same field.
+- **`repository_access` in job results** — Cipi 5.6.0 tests the deploy key against the repository (`git ls-remote` as the app user, branch included) on app create and on app edit with a new repository or branch. The `app-create` result, and the `app-edit` result when the repository or branch changed, now report it: `status` (`ok`, `nobranch` or `denied`), `branch`, `error` (the line git printed) and `hint` (the CLI fix Cipi suggests, e.g. `cipi git github-token <token> && cipi git refresh myapp`). The check never blocks the job.
+- **`build` in the `app-create` result** — the Laravel asset build, or the Node app's build command.
+
+### Changed
+
+- **MCP server** — version 1.4.0 (`AppCreate` gains `node_build`; its description mentions `repository_access`).
+- **OpenAPI** — `info.version` **1.34.0**; `AppCreateRequest.node_build`, new schema `RepositoryAccess`, `build` and `repository_access` on `JobResultAppCreate`, `repository_access` on `JobResultAppEdit`.
+
+### Compatibility
+
+- Cipi 5.6.0 also realigns its text tables (`cipi db list` and others) to the widest value of each column. The only table the API parses as text, `cipi db list`, is read with any amount of whitespace between columns, so `GET /api/dbs` is unchanged. Every other read goes through `--json`.
+
 ## [1.33.0] - 2026-10-09
 
 Disk usage over the API — the last host insight that was CLI-only. Requires **Cipi CLI ≥ 5.5.2** (`cipi self-update`, migration 5.5.2) so `/etc/sudoers.d/cipi-api` allows `cipi disk` and `cipi disk *`; the command itself exists since 5.5.0. Nothing changes for older servers: the two new endpoints answer 503 there, every other route is as in 1.32.0.

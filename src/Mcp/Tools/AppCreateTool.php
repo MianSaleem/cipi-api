@@ -11,7 +11,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Create a new app: Laravel (default), custom (SFTP/classic deploy) or Node frontend (spa/static/ssr via node/framework, Cipi 5.4.0+). Validates domain/username/PHP synchronously and dispatches async job. Returns job_id for polling.')]
+#[Description('Create a new app: Laravel (default), custom (SFTP/classic deploy) or Node frontend (spa/static/ssr via node/framework, Cipi 5.4.0+). Validates domain/username/PHP synchronously and dispatches async job. Returns job_id for polling. The job result reports repository_access: whether the deploy key can read the repository (Cipi 5.6.0+).')]
 class AppCreateTool extends Tool
 {
     public function __construct(
@@ -109,6 +109,17 @@ class AppCreateTool extends Tool
             }
         }
 
+        // Laravel asset build run inside every deploy (Cipi 5.6.0+)
+        $nodeBuild = is_string($request->get('node_build')) && $request->get('node_build') !== '' ? $request->get('node_build') : null;
+        if ($nodeBuild !== null) {
+            if ($custom || $isNode) {
+                return Response::text("Error: node_build is for Laravel apps (Node apps take 'build'; custom apps have no build step)");
+            }
+            if ($err = $this->validator->nodeBuildError($nodeBuild)) {
+                return Response::text("Error: {$err}");
+            }
+        }
+
         if (! $custom && ! $isNode && ! $hasRepo) {
             return Response::text('Error: repository is required for Laravel apps (set custom=true for SFTP-only apps without Git)');
         }
@@ -124,6 +135,9 @@ class AppCreateTool extends Tool
         }
 
         $params = compact('user', 'domain', 'repository', 'branch', 'php', 'custom', 'docroot', 'engine', 'octane');
+        if ($nodeBuild !== null) {
+            $params['node_build'] = $nodeBuild;
+        }
         if ($isNode) {
             $params += array_filter([
                 'node' => $node,
@@ -138,6 +152,7 @@ class AppCreateTool extends Tool
         $flagNames = [
             'node_version' => 'node-version',
             'health_path' => 'health-path',
+            'node_build' => 'node-build',
         ];
         $args = ['app create'];
         if ($custom) {
@@ -178,6 +193,7 @@ class AppCreateTool extends Tool
             'start' => $schema->string()->description('Start command for ssr apps (Node runner + args, e.g. "npm run start")'),
             'output' => $schema->string()->description('Build output directory for spa/static apps (e.g. dist)'),
             'health_path' => $schema->string()->description('Health path for ssr apps (blue/green switch checks it, default /)'),
+            'node_build' => $schema->string()->description('Laravel apps: asset build run inside every deploy before the release goes live, e.g. "npm ci && npm run build" (npm/npx/yarn/pnpm/bun/node; && and ; allowed). Cipi 5.6.0+.'),
         ];
     }
 }

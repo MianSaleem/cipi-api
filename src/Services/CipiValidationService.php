@@ -582,6 +582,33 @@ class CipiValidationService
     }
 
     /**
+     * Validate a Laravel asset build (`node_build`, e.g. "npm ci && npm run build").
+     * Mirrors the Cipi CLI check (_validate_node_build_cmd): it runs in a shell
+     * script inside the deploy, so `&&` and `;` are allowed, pipes, redirects,
+     * backticks and $( ) are not, and it must start with a Node runner.
+     */
+    public function nodeBuildError(?string $command): ?string
+    {
+        if ($command === null || $command === '') {
+            return null;
+        }
+        if (strlen($command) > 200) {
+            return 'Invalid build command. At most 200 characters';
+        }
+        if (preg_match('/[|<>`]|\$\(/', $command)) {
+            return 'Invalid build command. Pipes, redirects, backticks and $( ) are not allowed';
+        }
+        if (! preg_match('/^[a-zA-Z0-9_.\/= :&;\'"-]+$/', $command)) {
+            return 'Invalid build command. Use npm/npx/yarn/pnpm/bun/node and safe characters only';
+        }
+        if (! preg_match('/^(npm|npx|yarn|pnpm|bun|node)( |$)/', $command)) {
+            return 'Invalid build command. It must start with npm, npx, yarn, pnpm, bun or node';
+        }
+
+        return null;
+    }
+
+    /**
      * Validate a relative output directory (spa/static build output).
      */
     public function nodeOutputError(?string $output): ?string

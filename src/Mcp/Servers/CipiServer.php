@@ -81,7 +81,7 @@ use Laravel\Mcp\Server\Attributes\Version;
 use Laravel\Mcp\Server;
 
 #[Name('Cipi Server')]
-#[Version('1.3.0')]
+#[Version('1.4.0')]
 #[Instructions('Cipi server management: apps (Laravel, custom, Node), aliases, www redirects, app/path redirects, prefix proxies, databases (MariaDB/PostgreSQL), resource and soft disk limits, disk usage (server, apps, databases), SSL (HTTP-01 or Cloudflare DNS-01 / wildcard), Meilisearch, deploy audit, monitor, jobs, logs, and server status. Requires mcp-access token ability only.')]
 class CipiServer extends Server
 {

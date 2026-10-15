@@ -101,6 +101,8 @@ class AppController extends Controller
             'start' => 'nullable|string|max:256',
             'output' => 'nullable|string|max:128',
             'health_path' => 'nullable|string|max:128',
+            // Laravel asset build run inside every deploy (Cipi CLI ≥ 5.6.0)
+            'node_build' => 'nullable|string|max:200',
         ]);
 
         if (isset($validated['repository'])) {
@@ -145,6 +147,14 @@ class AppController extends Controller
 
         // Node frontend apps (Cipi CLI ≥ 5.4.0): --node=spa|static|ssr and/or --framework=…
         $isNode = $request->filled('node') || $request->filled('framework');
+        if (! empty($validated['node_build'])) {
+            if ($isNode || $request->boolean('custom')) {
+                return response()->json(['error' => "'node_build' is for Laravel apps (Node apps take 'build'; custom apps have no build step)"], 422);
+            }
+            if ($err = $this->validator->nodeBuildError($validated['node_build'])) {
+                return response()->json(['error' => $err], 422);
+            }
+        }
         if ($isNode) {
             if ($request->boolean('custom') || $octane !== null) {
                 return response()->json(['error' => 'A Node app cannot be combined with custom or octane'], 422);
@@ -208,6 +218,7 @@ class AppController extends Controller
         $flagNames = [
             'node_version' => 'node-version',
             'health_path' => 'health-path',
+            'node_build' => 'node-build',
         ];
         foreach ($validated as $k => $v) {
             if ($k === 'custom' || $k === 'octane') {
