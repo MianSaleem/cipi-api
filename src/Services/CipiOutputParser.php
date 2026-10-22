@@ -45,6 +45,7 @@ class CipiOutputParser
             'node-restart' => $this->parseNodeRestart($plain),
             'app-fix-permissions' => $this->parseAppFixPermissions($plain),
             'app-limits' => $this->parseAppLimits($plain),
+            'app-yml-apply' => $this->parseAppYmlApply($plain),
             'status' => $this->parseStatus($plain),
             default => null,
         };
@@ -427,6 +428,62 @@ class CipiOutputParser
         }
 
         return $result !== [] ? $result : null;
+    }
+
+    /**
+     * `cipi yml apply <app> --yes` (Cipi CLI ≥ 5.6.4). The outcome is always set,
+     * failed runs included: blocked, invalid and no-file exit 1 but still say why.
+     */
+    protected function parseAppYmlApply(string $text): ?array
+    {
+        $result = ['app' => null, 'outcome' => null, 'applied' => 0, 'failed' => 0, 'failures' => [], 'blockers' => [], 'errors' => []];
+
+        if (preg_match('/Applied (\d+) change\(s\), (\d+) failed/', $text, $m)) {
+            $result['outcome'] = 'partial';
+            $result['applied'] = (int) $m[1];
+            $result['failed'] = (int) $m[2];
+        } elseif (preg_match('/Applied (\d+) change\(s\) from cipi\.yml/', $text, $m)) {
+            $result['outcome'] = 'applied';
+            $result['applied'] = (int) $m[1];
+        } elseif (preg_match('/Nothing to do — the server already matches cipi\.yml/u', $text)) {
+            $result['outcome'] = 'unchanged';
+        } elseif (preg_match('/Nothing was applied — resolve the blocking items/u', $text)) {
+            $result['outcome'] = 'blocked';
+        } elseif (preg_match('/cipi\.yml is not valid/', $text)) {
+            $result['outcome'] = 'invalid';
+        } elseif (preg_match("/No cipi\.yml found for '([^']+)'/", $text, $m)) {
+            $result['outcome'] = 'no-file';
+            $result['app'] = $m[1];
+        }
+
+        if (preg_match("/Plan for '([^']+)'/", $text, $m)) {
+            $result['app'] = $m[1];
+        }
+        if (preg_match_all('/^(?:\[ERROR\])?\s*failed:\s*(.+)$/m', $text, $m)) {
+            $result['failures'] = array_map('trim', $m[1]);
+        }
+        if ($result['outcome'] === 'blocked' && preg_match_all('/^\s*✗\s*(.+)$/mu', $text, $m)) {
+            $result['blockers'] = array_map('trim', $m[1]);
+        }
+        if ($result['outcome'] === 'invalid') {
+            // The validator's messages follow the header, indented by four spaces.
+            $after = preg_split('/cipi\.yml is not valid[^\n]*\n/', $text, 2)[1] ?? '';
+            foreach (explode("\n", $after) as $line) {
+                if (! preg_match('/^ {4}(\S.*)$/', $line, $m)) {
+                    break;
+                }
+                $result['errors'][] = trim($m[1]);
+            }
+        }
+        if ($result['outcome'] === null) {
+            $error = $this->extractErrorMessage($text);
+            if ($error === null) {
+                return null;
+            }
+            $result['errors'][] = $error;
+        }
+
+        return $result;
     }
 
     protected function parseAliasCreate(string $text): ?array

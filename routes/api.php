@@ -29,6 +29,7 @@ use CipiApi\Http\Controllers\SshController;
 use CipiApi\Http\Controllers\SslController;
 use CipiApi\Http\Controllers\StatusController;
 use CipiApi\Http\Controllers\WwwController;
+use CipiApi\Http\Controllers\YmlController;
 use CipiApi\Http\Controllers\ZtController;
 use Illuminate\Support\Facades\Route;
 
@@ -101,6 +102,12 @@ Route::prefix('api')->middleware(['cipi.ip', 'auth:sanctum'])->group(function ()
     Route::get('/node', [NodeController::class, 'runtimes'])->middleware('ability:node-view');
     Route::get('/apps/{name}/node', [NodeController::class, 'status'])->middleware('ability:node-view');
     Route::post('/apps/{name}/node/restart', [NodeController::class, 'restart'])->middleware('ability:node-manage');
+
+    // cipi.yml — plan, apply, auto-apply after deploy (Cipi CLI ≥ 5.6.4 + API sudoers ≥ 5.6.4)
+    Route::get('/apps/{name}/yml', [YmlController::class, 'show'])->middleware('ability:yml-view');
+    Route::post('/apps/{name}/yml/apply', [YmlController::class, 'apply'])->middleware('ability:yml-manage');
+    Route::post('/apps/{name}/yml/auto/enable', [YmlController::class, 'autoEnable'])->middleware('ability:yml-manage');
+    Route::post('/apps/{name}/yml/auto/disable', [YmlController::class, 'autoDisable'])->middleware('ability:yml-manage');
 
     // Deploy
     Route::post('/apps/{name}/deploy', [DeployController::class, 'deploy'])->middleware('ability:deploy-manage');

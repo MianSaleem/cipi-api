@@ -10,6 +10,9 @@ use CipiApi\Mcp\Tools\AppDeleteTool;
 use CipiApi\Mcp\Tools\AppFixPermissionsTool;
 use CipiApi\Mcp\Tools\AppLimitsShowTool;
 use CipiApi\Mcp\Tools\AppLimitsUpdateTool;
+use CipiApi\Mcp\Tools\AppYmlApplyTool;
+use CipiApi\Mcp\Tools\AppYmlAutoTool;
+use CipiApi\Mcp\Tools\AppYmlShowTool;
 use CipiApi\Mcp\Tools\DeployAuditTool;
 use CipiApi\Mcp\Tools\DiskDatabasesTool;
 use CipiApi\Mcp\Tools\DiskUsageTool;
@@ -81,8 +84,8 @@ use Laravel\Mcp\Server\Attributes\Version;
 use Laravel\Mcp\Server;
 
 #[Name('Cipi Server')]
-#[Version('1.4.0')]
-#[Instructions('Cipi server management: apps (Laravel, custom, Node), aliases, www redirects, app/path redirects, prefix proxies, databases (MariaDB/PostgreSQL), resource and soft disk limits, disk usage (server, apps, databases), SSL (HTTP-01 or Cloudflare DNS-01 / wildcard), Meilisearch, deploy audit, monitor, jobs, logs, and server status. Requires mcp-access token ability only.')]
+#[Version('1.5.0')]
+#[Instructions('Cipi server management: apps (Laravel, custom, Node), aliases, www redirects, app/path redirects, prefix proxies, databases (MariaDB/PostgreSQL), resource and soft disk limits, disk usage (server, apps, databases), cipi.yml (plan, apply, auto-apply after deploy), SSL (HTTP-01 or Cloudflare DNS-01 / wildcard), Meilisearch, deploy audit, monitor, jobs, logs, and server status. Requires mcp-access token ability only.')]
 class CipiServer extends Server
 {
     /**
@@ -122,6 +125,9 @@ class CipiServer extends Server
         AppBasicAuthStatusTool::class,
         AppBasicAuthEnableTool::class,
         AppBasicAuthDisableTool::class,
+        AppYmlShowTool::class,
+        AppYmlApplyTool::class,
+        AppYmlAutoTool::class,
         AliasListTool::class,
         AliasAddTool::class,
         AliasRemoveTool::class,

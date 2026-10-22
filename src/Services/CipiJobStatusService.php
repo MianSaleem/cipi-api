@@ -39,6 +39,10 @@ class CipiJobStatusService
             $job->output ?? '',
             $job->status === 'completed',
         );
+        // Some CLI messages do not name the app (`cipi yml apply`): the job knows it.
+        if (is_array($data['result']) && array_key_exists('app', $data['result']) && $data['result']['app'] === null) {
+            $data['result']['app'] = $job->params['app'] ?? null;
+        }
 
         if ($includeOutput) {
             $data['output'] = $this->truncateOutput($job->output ?? '');

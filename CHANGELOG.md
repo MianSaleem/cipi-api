@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.35.0] - 2026-10-22
+
+cipi.yml over the API. Requires **Cipi CLI ≥ 5.6.4** (`cipi self-update`, migration 5.6.4): it adds `cipi yml plan --json` and `cipi yml auto status --json`, and lets `/etc/sudoers.d/cipi-api` run `cipi yml plan *`, `cipi yml apply *` and `cipi yml auto *`. On older servers the new endpoints answer 503; every other route is as in 1.34.0. Cipi 5.6.4 is also the release where auto-apply finally works on Git-webhook deploys.
+
+### Added
+
+- **`GET /api/apps/{name}/yml`** — what `cipi yml plan <app> --json` prints: `file` (the cipi.yml of the live release, null when it has none), `auto` (applied after every successful deploy), `valid` with `errors` and `warnings`, `changes` (`kind`, `summary`), `blockers` (apply refuses while any is listed), `notes` and `in_sync`. Synchronous and read-only. Ability `yml-view`.
+- **`POST /api/apps/{name}/yml/apply`** — `cipi yml apply <app> --yes` as an async job `app-yml-apply`. The result has `outcome` (`applied`, `unchanged`, `partial`, `blocked`, `invalid`, `no-file`), `applied`, `failed`, `failures`, `blockers` and `errors`; the last four outcomes end the job as `failed` and still carry the result. Ability `yml-manage`.
+- **`POST /api/apps/{name}/yml/auto/enable`** and **`…/disable`** — `cipi yml auto <app> on|off`, synchronous and idempotent; they return `{app, auto, sudoers, file}`. With auto-apply on, whoever can commit to the repository controls the app's server configuration, so clients should confirm before turning it on. Ability `yml-manage`.
+- **Token abilities** `yml-view` and `yml-manage` in `config/cipi.php`. Existing tokens do not get them: create a token with them (`cipi api token create`) to use the new endpoints.
+- **MCP** — `AppYmlShow` (read-only), `AppYmlApply` (job), `AppYmlAuto` (`enabled`).
+- **CLI whitelist** — `yml plan`, `yml apply`, `yml auto` in `CipiCliService::ALLOWED_COMMANDS`.
+
+### Changed
+
+- **Job results** — when a parsed result has an `app` key the CLI text could not fill, it is taken from the job's parameters.
+- **MCP server** — version 1.5.0; 76 tools, still one `tools/list` page.
+- **OpenAPI** — `info.version` **1.35.0**; 4 new paths under the new `cipi.yml` tag, schemas `YmlPlanResponse`, `YmlAutoResponse`, `JobResultAppYmlApply`; `app-yml-apply` among the job types.
+
 ## [1.34.0] - 2026-10-15
 
 Covers Cipi 5.6.0 on the app create path: the asset build can be set at creation, and the job results say whether the app can read its repository. **Cipi CLI ≥ 5.6.0** fills both; on older servers `node_build` is ignored by the CLI and `repository_access` is simply absent. No sudoers change: `app create *` and `app edit *` are already allowed.

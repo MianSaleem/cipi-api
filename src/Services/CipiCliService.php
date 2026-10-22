@@ -96,6 +96,10 @@ class CipiCliService
         'ssl dns remove',
         // Cipi CLI ≥ 5.5.0 (API sudoers ≥ 5.5.2): `disk --json`, `disk db --json`
         'disk',
+        // Cipi CLI ≥ 5.6.4 (API sudoers ≥ 5.6.4): `yml plan --json`, `yml apply --yes`, `yml auto`
+        'yml plan',
+        'yml apply',
+        'yml auto',
     ];
 
     /**
